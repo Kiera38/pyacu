@@ -1,0 +1,20 @@
+[build-system]
+requires = ["flit_core >=3.11,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "Acu"
+authors = [{name = "izpy", email = "maxfpav@gmail.com"}]
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version", "description"]
+dependencies = [
+    "llvmlite>=0.45.1",
+    "setuptools"
+]
+
+[project.scripts]
+acu = "acuc.driver:main"
+
+[tool.flit.module]
+name = "acuc"
