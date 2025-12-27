@@ -14,7 +14,4 @@ dependencies = [
 ]
 
 [project.scripts]
-acu = "acuc.driver:main"
-
-[tool.flit.module]
-name = "acuc"
+acu = "acu.driver:main"
