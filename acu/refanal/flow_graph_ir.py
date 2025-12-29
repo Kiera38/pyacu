@@ -8,11 +8,13 @@ from enum import Enum, auto
 from acu.semanal.ir import BinaryOp, ComparisonOp, UnaryOp
 from acu.semanal.types import (
     ArrayType,
-    Builtin,
-    BuiltinType,
     PointerType,
     Struct,
     Type,
+    nothing_type,
+    bool_type,
+    int_type,
+    float_type,
 )
 from acu.source import Location
 
@@ -39,12 +41,6 @@ class Specifier(Enum):
     VAL = auto()
 
 
-nothing_type = BuiltinType(Builtin.NOTHING)
-int_type = BuiltinType(Builtin.INT)
-float_type = BuiltinType(Builtin.FLOAT)
-bool_type = BuiltinType(Builtin.BOOL)
-
-
 class Value:
     location: Location
     type: Type = nothing_type
@@ -52,7 +48,7 @@ class Value:
 
     @property
     def is_void(self) -> bool:
-        return self.type == BuiltinType(Builtin.NOTHING)
+        return self.type == nothing_type
 
 
 class Register(Value):
@@ -565,7 +561,7 @@ class FuncIR:
     name: str
     args: list[Register]
     blocks: list[BasicBlock]
-    return_type: Type = field(default_factory=lambda: BuiltinType(Builtin.NOTHING))
+    return_type: Type = field(default_factory=lambda: nothing_type)
 
 
 class OpVisitor[T]:

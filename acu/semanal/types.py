@@ -13,32 +13,43 @@ class Type:
         return self == to
 
 
-class Builtin(Enum):
-    NOTHING = auto()
-    BOOL = auto()
-    INT = auto()
-    FLOAT = auto()
+@dataclass
+class NothingType(Type):
+    pass
+
+
+nothing_type = NothingType()
 
 
 @dataclass
-class BuiltinType(Type):
-    type: Builtin
+class BoolType(Type):
+    def can_convert(self, to: Type) -> bool:
+        return super().can_convert(to) or isinstance(to, (IntType, FloatType))
+
+
+bool_type = BoolType()
+
+
+@dataclass
+class IntType(Type):
+    size: int
 
     def can_convert(self, to: Type) -> bool:
-        if super().can_convert(to):
-            return True
-        if self.type == Builtin.NOTHING:
-            return True
-        if not isinstance(to, BuiltinType):
-            return False
-        if self.type == to.type:
-            return True
-        if to.type == Builtin.BOOL:
-            return True
-        if self.type == Builtin.INT:
-            if to.type == Builtin.FLOAT:
-                return True
-        return False
+        return super().can_convert(to) or isinstance(to, FloatType) or isinstance(to, IntType) and to.size >= self.size
+    
+
+int_type = IntType(64)
+
+
+@dataclass
+class FloatType(Type):
+    size: int
+
+    def can_convert(self, to: Type) -> bool:
+        return super().can_convert(to) or isinstance(to, FloatType) and to.size >= self.size
+
+
+float_type = FloatType(64)
 
 
 @dataclass

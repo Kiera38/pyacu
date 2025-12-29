@@ -29,11 +29,13 @@ from acu.refanal.flow_graph_ir import (
 from acu.semanal.ir import BinaryOp, ComparisonOp, UnaryOp
 from acu.semanal.types import (
     ArrayType,
-    Builtin,
-    BuiltinType,
     PointerType,
     Struct,
     Type,
+    BoolType,
+    FloatType,
+    IntType,
+    NothingType,
 )
 
 
@@ -50,26 +52,25 @@ class LLVMGenerator(OpVisitor[llir.Value]):
         return self.const_int_type(value)
 
     def type(self, type: Type) -> llir.Type:
-        if isinstance(type, BuiltinType):
-            match type.type:
-                case Builtin.BOOL:
-                    return llir.IntType(1)
-                case Builtin.FLOAT:
-                    return llir.DoubleType()
-                case Builtin.INT:
-                    return llir.IntType(64)
-                case Builtin.NOTHING:
-                    return llir.VoidType()
-        elif isinstance(type, PointerType):
-            return llir.PointerType()
-        elif isinstance(type, ArrayType):
-            return llir.ArrayType(self.type(type.type), type.size)
-        elif isinstance(type, Struct):
-            return llir.LiteralStructType(
-                [self.type(field[1].type) for field in type.field_list]
-            )
-        else:
-            raise Exception("unknown type")
+        match type:
+            case BoolType():
+                return llir.IntType(1)
+            case FloatType():
+                return llir.DoubleType()
+            case IntType():
+                return llir.IntType(64)
+            case NothingType():
+                return llir.VoidType()
+            case PointerType():
+                return llir.PointerType()
+            case ArrayType():
+                return llir.ArrayType(self.type(type.type), type.size)
+            case Struct():
+                return llir.LiteralStructType(
+                    [self.type(field[1].type) for field in type.field_list]
+                )
+            case _:
+                raise Exception("unknown type")
 
     def create(self, func: FuncIR):
         self.funcs[func] = llir.Function(
@@ -170,34 +171,32 @@ class LLVMGenerator(OpVisitor[llir.Value]):
         return self.builder.call(self.func(op.fn), [self.value(arg) for arg in op.args])
 
     def cast(self, op: Cast) -> llir.Value:
-        assert isinstance(op.type, BuiltinType)
-        assert isinstance(op.obj.type, BuiltinType)
-        match op.type.type:
-            case Builtin.BOOL:
+        match op.type:
+            case BoolType():
                 match op.obj.type:
-                    case Builtin.INT:
+                    case IntType():
                         return self.builder.icmp_signed(
                             "!=", self.value(op.obj), self.int_const(0)
                         )
-                    case Builtin.FLOAT:
+                    case FloatType():
                         return self.builder.fcmp_unordered(
                             "!=", self.value(op.obj), llir.DoubleType()(0)
                         )
                     case _:
                         raise Exception("unknown convertion type")
-            case Builtin.FLOAT:
+            case FloatType():
                 match op.obj.type:
-                    case Builtin.INT | Builtin.FLOAT:
+                    case IntType() | FloatType():
                         return self.builder.sitofp(
                             self.value(op.obj), self.type(op.type)
                         )  # type: ignore
                     case _:
                         raise Exception("unknown conversion type")
-            case Builtin.INT:
+            case IntType():
                 match op.obj.type:
-                    case Builtin.BOOL:
+                    case BoolType():
                         return self.builder.sext(self.value(op.obj), self.type(op.type))  # type: ignore
-                    case Builtin.FLOAT:
+                    case FloatType():
                         return self.builder.fptosi(
                             self.value(op.obj), self.type(op.type)
                         )  # type: ignore
@@ -207,11 +206,8 @@ class LLVMGenerator(OpVisitor[llir.Value]):
                 raise Exception("Unknown conversion type")
 
     def binary(self, op: Binary) -> llir.Value:
-        assert isinstance(op.left.type, BuiltinType)
-        assert isinstance(op.right.type, BuiltinType)
-        assert isinstance(op.type, BuiltinType)
-        match op.type.type:
-            case Builtin.INT:
+        match op.type:
+            case IntType():
                 match op.op:
                     case BinaryOp.ADD:
                         return self.builder.add(
@@ -253,7 +249,7 @@ class LLVMGenerator(OpVisitor[llir.Value]):
                         return self.builder.xor(
                             self.value(op.left), self.value(op.right)
                         )  # type: ignore
-            case Builtin.FLOAT:
+            case FloatType():
                 match op.op:
                     case BinaryOp.ADD:
                         return self.builder.fadd(
@@ -278,30 +274,26 @@ class LLVMGenerator(OpVisitor[llir.Value]):
         raise Exception("unknown binary op")
 
     def unary(self, op: Unary) -> llir.Value:
-        assert isinstance(op.value.type, BuiltinType)
-        assert isinstance(op.type, BuiltinType)
-        match op.type.type:
-            case Builtin.INT:
+        match op.type:
+            case IntType():
                 match op.op:
                     case UnaryOp.NEG:
                         return self.builder.neg(self.value(op.value))  # type: ignore
                     case UnaryOp.BIT_NOT:
                         return self.builder.not_(self.value(op.value))  # type: ignore
-            case Builtin.BOOL:
+            case BoolType():
                 match op.op:
                     case UnaryOp.NOT:
                         return self.builder.icmp_signed(
                             "==", self.value(op.value), self.type(op.type)(0)
                         )
-            case Builtin.FLOAT:
+            case FloatType():
                 match op.op:
                     case UnaryOp.NEG:
                         return self.builder.fneg(self.value(op.value))  # type: ignore
-        raise Exception("unknonw unary op")
+        raise Exception("unknown unary op")
 
     def comparison(self, op: Comparison) -> llir.Value:
-        assert isinstance(op.left.type, BuiltinType)
-        assert isinstance(op.right.type, BuiltinType)
         assert op.left.type == op.right.type
         cmpop = {
             ComparisonOp.EQUAL: "==",
@@ -312,16 +304,16 @@ class LLVMGenerator(OpVisitor[llir.Value]):
             ComparisonOp.LESS_EQUAL: "<=",
         }[op.op]
 
-        match op.left.type.type:
-            case Builtin.BOOL | Builtin.INT:
+        match op.left.type:
+            case BoolType() | IntType():
                 return self.builder.icmp_signed(
                     cmpop, self.value(op.left), self.value(op.right)
                 )
-            case Builtin.FLOAT:
+            case FloatType():
                 return self.builder.fcmp_unordered(
                     cmpop, self.value(op.left), self.value(op.right)
                 )
-        raise Exception("unknown comaprison op")
+        raise Exception("unknown comparison op")
 
     def array(self, op: Array) -> llir.Value:
         ll_value = self.type(op.type)(llir.Undefined)

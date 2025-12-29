@@ -26,7 +26,7 @@ from acu.refanal.flow_graph_ir import (
     Value,
 )
 from acu.semanal import ir
-from acu.semanal.types import Builtin, BuiltinType, Struct, StructType, Type
+from acu.semanal.types import Struct, StructType, Type, bool_type, nothing_type
 
 
 class IRBuilder(ir.InstVisitor[Value]):
@@ -68,7 +68,7 @@ class IRBuilder(ir.InstVisitor[Value]):
         return op
 
     def type(self, i: ir.Inst) -> Type:
-        return self.types.get(i, BuiltinType(Builtin.NOTHING))
+        return self.types.get(i, nothing_type)
 
     def new_reg_for(self, inst: ir.Inst, name: str = "") -> Register:
         reg = Register(location=inst.location, type=self.type(inst), name=name)
@@ -238,7 +238,6 @@ class IRBuilder(ir.InstVisitor[Value]):
         join_b = self.create_block()
 
         # Ensure condition is boolean-like
-        bool_type = BuiltinType(Builtin.BOOL)
         left_val = self.ensure_type(left_val, bool_type, inst.location)
         if inst.op == ir.LogicalOp.AND:
             br = Branch(
@@ -435,7 +434,7 @@ class IRBuilder(ir.InstVisitor[Value]):
     def if_inst(self, inst: ir.If):
         cond = self.value(inst.value)
         # ensure condition is boolean-ish
-        cond = self.ensure_type(cond, BuiltinType(Builtin.BOOL), inst.location)
+        cond = self.ensure_type(cond, bool_type, inst.location)
         then_b = self.create_block()
         else_b = self.create_block()
         join_b = self.create_block()

@@ -4,7 +4,6 @@ This module handles the compilation of LLVM modules to executable machine code.
 """
 
 import sys
-import time
 from pathlib import Path
 
 import llvmlite.binding as llvm

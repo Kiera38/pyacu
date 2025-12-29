@@ -34,13 +34,17 @@ from acu.semanal.ir import (
 )
 from acu.semanal.types import (
     ArrayType,
-    Builtin,
-    BuiltinType,
+    FloatType,
     FuncType,
+    IntType,
     PointerType,
     Struct,
     StructType,
     Type,
+    int_type,
+    float_type,
+    bool_type,
+    nothing_type,
 )
 from acu.source import Location
 
@@ -176,9 +180,9 @@ class TypeAnalyzer(InstVisitor[None]):
             return
         match inst.value:
             case int():
-                self.lock_type(inst, BuiltinType(Builtin.INT), inst.location)
+                self.lock_type(inst, int_type, inst.location)
             case float():
-                self.lock_type(inst, BuiltinType(Builtin.FLOAT), inst.location)
+                self.lock_type(inst, float_type, inst.location)
             case Func():
                 self.lock_type(inst, inst.value.get_type(), inst.location)
             case Struct():
@@ -216,13 +220,10 @@ class TypeAnalyzer(InstVisitor[None]):
                 BinaryOp.DIV,
                 BinaryOp.MOD,
             ):
-                if not isinstance(type, BuiltinType) or type.type not in (
-                    Builtin.INT,
-                    Builtin.FLOAT,
-                ):
+                if not isinstance(type, (IntType, FloatType)):
                     raise Exception("operation is not supported")
             else:
-                if not isinstance(type, BuiltinType) or type.type != Builtin.INT:
+                if not isinstance(type, FloatType):
                     raise Exception("operation is not supported")
             self.add_type(inst, type, inst.location)
         else:
@@ -234,18 +235,15 @@ class TypeAnalyzer(InstVisitor[None]):
             return
         type = value.get_one()
         if inst.op == UnaryOp.NOT:
-            self.add_type(inst, BuiltinType(Builtin.BOOL), inst.location)
-            if not type.can_convert(BuiltinType(Builtin.BOOL)):
+            self.add_type(inst, bool_type, inst.location)
+            if not type.can_convert(bool_type):
                 raise Exception("cannot convert type")
         elif inst.op == UnaryOp.BIT_NOT:
-            self.add_type(inst, BuiltinType(Builtin.INT), inst.location)
-            if type != BuiltinType(Builtin.INT):
+            self.add_type(inst, int_type, inst.location)
+            if type != int_type:
                 raise Exception("unsupported operation")
         else:
-            if not isinstance(type, BuiltinType) or type.type not in (
-                Builtin.INT,
-                Builtin.FLOAT,
-            ):
+            if not isinstance(type, (IntType, FloatType)):
                 raise Exception("unsupported operation")
             self.add_type(inst, type, inst.location)
 
@@ -254,20 +252,20 @@ class TypeAnalyzer(InstVisitor[None]):
         return self.typevars[block.code[-1]]
 
     def logical(self, inst: Logical) -> None:
-        self.add_type(inst, BuiltinType(Builtin.BOOL), inst.location)
+        self.add_type(inst, bool_type, inst.location)
         left = self.typevars[inst.left]
         if not left.defined:
             return
-        if not left.get_one().can_convert(BuiltinType(Builtin.BOOL)):
+        if not left.get_one().can_convert(bool_type):
             raise Exception("cannot convert type")
         right = self.get_block_type_var(inst.right)
         if not right.defined:
             return
-        if not right.get_one().can_convert(BuiltinType(Builtin.BOOL)):
+        if not right.get_one().can_convert(bool_type):
             raise Exception("cannot convert type")
 
     def comparison(self, inst: Comparison) -> None:
-        self.add_type(inst, BuiltinType(Builtin.BOOL), inst.location)
+        self.add_type(inst, bool_type, inst.location)
         left = self.typevars[inst.left]
         if not left.defined:
             return
@@ -309,21 +307,21 @@ class TypeAnalyzer(InstVisitor[None]):
 
     def loop(self, inst: Loop) -> None:
         self.propagate_block(inst.block)
-        self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+        self.add_type(inst, nothing_type, inst.location)
 
     def if_inst(self, inst: If) -> None:
         cond_tv = self.typevars[inst.value]
         if not cond_tv.defined:
             return
-        if not cond_tv.get_one().can_convert(BuiltinType(Builtin.BOOL)):
+        if not cond_tv.get_one().can_convert(bool_type):
             raise Exception("cannot convert type")
         self.propagate_block(inst.then_block)
         self.propagate_block(inst.else_block)
-        self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+        self.add_type(inst, nothing_type, inst.location)
 
     def return_inst(self, inst: Return) -> None:
         if inst.value is None:
-            if self.func.return_type != BuiltinType(Builtin.NOTHING):
+            if self.func.return_type != nothing_type:
                 raise Exception("need return value")
         else:
             value_tv = self.typevars[inst.value]
@@ -331,13 +329,13 @@ class TypeAnalyzer(InstVisitor[None]):
                 return
             if not value_tv.get_one().can_convert(self.func.return_type):
                 raise Exception("cannot convert type")
-        self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+        self.add_type(inst, nothing_type, inst.location)
 
     def break_inst(self, inst: Break) -> None:
-        self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+        self.add_type(inst, nothing_type, inst.location)
 
     def continue_inst(self, inst: Continue) -> None:
-        self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+        self.add_type(inst, nothing_type, inst.location)
 
     def address_of(self, inst: AddressOf) -> None:
         tv = self.typevars[inst.value]
@@ -359,7 +357,7 @@ class TypeAnalyzer(InstVisitor[None]):
         index_type = index_tv.get_one()
         if not isinstance(value_type, (PointerType, ArrayType)):
             raise Exception("unsupported get item")
-        if not index_type.can_convert(BuiltinType(Builtin.INT)):
+        if not index_type.can_convert(int_type):
             raise Exception("index type is not converted to int")
         self.add_type(inst, value_type.type, inst.location)
 
@@ -381,11 +379,11 @@ class TypeAnalyzer(InstVisitor[None]):
         value_type = value_tv.get_one()
         if not isinstance(var_type, (PointerType, ArrayType)):
             raise Exception("unsupported set item")
-        if not index_type.can_convert(BuiltinType(Builtin.INT)):
+        if not index_type.can_convert(int_type):
             raise Exception("index type is not converted to int")
         if not value_type.can_convert(var_type.type):
             raise Exception("cannot convert type")
-        self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+        self.add_type(inst, nothing_type, inst.location)
 
     def set_attr(self, inst: SetAttr) -> None:
         var_tv = self.typevars[inst.var]
@@ -399,7 +397,7 @@ class TypeAnalyzer(InstVisitor[None]):
             if not value_tv.get_one().can_convert(field.type):
                 raise Exception("cannot convert type")
             # inst.field = field
-            self.add_type(inst, BuiltinType(Builtin.NOTHING), inst.location)
+            self.add_type(inst, nothing_type, inst.location)
         else:
             raise Exception("field not found")
 
