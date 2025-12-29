@@ -6,10 +6,10 @@ from acu.parser import ExprVisitor, Location, StmtVisitor, nodes
 from acu.semanal import ir, types
 
 builtin_types = {
-    "Nothing": types.Builtin.NOTHING,
-    "Bool": types.Builtin.BOOL,
-    "Int": types.Builtin.INT,
-    "Float": types.Builtin.FLOAT,
+    "Nothing": types.nothing_type,
+    "Bool": types.bool_type,
+    "Int": types.int_type,
+    "Float": types.float_type,
 }
 
 
@@ -101,7 +101,7 @@ class TypeConverter(ExprVisitor[ir.Type]):
 
     def name(self, expr: nodes.NameExpr) -> types.Type:
         if type := builtin_types.get(expr.name):
-            return types.BuiltinType(type)
+            return type
         if struct := self.context.find(expr.name):
             if not isinstance(struct, ir.Struct):
                 raise Exception("is not struct")
@@ -414,7 +414,7 @@ def convert_func(
     if func.return_type:
         ir_func.return_type = func.return_type.accept(typeconv)
     else:
-        ir_func.return_type = types.BuiltinType(types.Builtin.NOTHING)
+        ir_func.return_type = types.nothing_type
     code = []
     for arg in func.args:
         ir_arg = ir.Arg(
