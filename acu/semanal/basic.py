@@ -425,6 +425,11 @@ def convert_func(
     ir_func.code = ir.Block(code)
     with context.block(ir_func.code):
         func.body.accept(stmts)
+        if not ir_func.code.code or not isinstance(ir_func.code.code[-1], ir.Return):
+            if ir_func.return_type == types.nothing_type:
+                stmts.add(ir.Return(func.location, None))
+            else:
+                raise Exception("missing return statement")
     context.pop_scope()
     return ir_func
 

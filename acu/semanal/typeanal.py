@@ -237,7 +237,7 @@ class TypeAnalyzer(InstVisitor[None]):
         if inst.op == UnaryOp.NOT:
             self.add_type(inst, bool_type, inst.location)
             if not type.can_convert(bool_type):
-                raise Exception("cannot convert type")
+                raise Exception(f"cannot convert type {type}")
         elif inst.op == UnaryOp.BIT_NOT:
             self.add_type(inst, int_type, inst.location)
             if type != int_type:

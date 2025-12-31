@@ -1,0 +1,23 @@
+func main() Int:
+    var a = [10, 100, 30, 7]
+    bubble_sort(a)
+    return 0
+
+
+func bubble_sort(a: Array[Int, 4]):
+    var n = 4
+    var swapped
+    var i = 0
+    while i < n -1:
+        swapped = 0
+        var j = 0
+        while j < n-i-1:
+            if a[j] > a[j+1]:
+                var t = a[j+1]
+                a[j+1] = a[j]
+                a[j] = t
+                swapped = 1
+            j+=1
+        if not swapped:
+            break
+        i+=1

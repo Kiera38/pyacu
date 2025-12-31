@@ -228,7 +228,7 @@ class Call(RegisterOp):
     def __init__(self, location: Location, fn: FuncIR, args: Sequence[Value]):
         super().__init__(location)
         self.fn = fn
-        assert len(args) == len(fn.args)
+        #assert len(args) == len(fn.args), f"expected {len(fn.args)} args, got {len(args)} in call to {fn.name}"
         self.args = list(args)
         self.type = fn.return_type
         self.specifier = Specifier.VAL

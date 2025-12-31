@@ -35,7 +35,7 @@ class IntType(Type):
     size: int
 
     def can_convert(self, to: Type) -> bool:
-        return super().can_convert(to) or isinstance(to, FloatType) or isinstance(to, IntType) and to.size >= self.size
+        return super().can_convert(to) or isinstance(to, FloatType) or isinstance(to, IntType) and to.size >= self.size or isinstance(to, BoolType)
     
 
 int_type = IntType(64)
@@ -46,7 +46,7 @@ class FloatType(Type):
     size: int
 
     def can_convert(self, to: Type) -> bool:
-        return super().can_convert(to) or isinstance(to, FloatType) and to.size >= self.size
+        return super().can_convert(to) or isinstance(to, FloatType) and to.size >= self.size or isinstance(to, BoolType)
 
 
 float_type = FloatType(64)
